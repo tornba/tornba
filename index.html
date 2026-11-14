@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fokus – Inbox & Eisenhower-Matrix</title>
+<meta name="description" content="Aufgaben sammeln, nach Lebensbereich sortieren und per Eisenhower-Matrix priorisieren.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111'/%3E%3Cpath d='M9 9h6v6H9zM17 9h6v6h-6zM9 17h6v6H9z' fill='%23fff'/%3E%3Cpath d='M17 17h6v6h-6z' fill='%23fff' opacity='.35'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --surface-2: #f1f1ee;
+  --line: #e4e4df;
+  --text: #17171a;
+  --muted: #74747c;
+  --accent: #17171a;
+  --accent-text: #ffffff;
+  --arbeit: #2f6fde;
+  --studium: #8a4fd6;
+  --privat: #1f9d68;
+  --danger: #c93c3c;
+  --q1: #e5484d;
+  --q2: #2f6fde;
+  --q3: #d9871a;
+  --q4: #9a9aa2;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101012;
+    --surface: #19191c;
+    --surface-2: #222226;
+    --line: #2c2c31;
+    --text: #ededf0;
+    --muted: #92929b;
+    --accent: #ededf0;
+    --accent-text: #101012;
+    --arbeit: #6c9cf2;
+    --studium: #ae84ea;
+    --privat: #4cc491;
+    --danger: #ef6b6b;
+    --q1: #f0686c;
+    --q2: #6c9cf2;
+    --q3: #e8a548;
+    --q4: #6e6e77;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+:focus-visible { outline: 2px solid var(--arbeit); outline-offset: 2px; }
+
+.app { max-width: 1280px; margin: 0 auto; padding: 20px 16px 48px; }
+
+header.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+  margin-bottom: 20px;
+}
+.brand { font-size: 18px; font-weight: 650; letter-spacing: -.01em; margin-right: auto; }
+.brand span { color: var(--muted); font-weight: 450; }
+
+.filters {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--surface-2); border-radius: 999px; max-width: 100%; overflow-x: auto;
+}
+.filters button {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 999px; color: var(--muted);
+  font-weight: 550; white-space: nowrap;
+}
+.filters button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.filters .count { font-size: 12px; font-variant-numeric: tabular-nums; opacity: .7; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
+.dot.arbeit { background: var(--arbeit); }
+.dot.studium { background: var(--studium); }
+.dot.privat { background: var(--privat); }
+
+.layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.panel {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.panel-head { display: flex; align-items: baseline; gap: 8px; padding: 16px 16px 0; }
+.panel-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+.panel-head .sub { color: var(--muted); font-size: 13px; }
+
+/* Inbox */
+.inbox { position: sticky; top: 16px; }
+@media (max-width: 900px) { .inbox { position: static; } }
+.add { padding: 12px 16px 14px; }
+.add textarea {
+  width: 100%; resize: none; overflow: hidden;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  min-height: 42px; display: block;
+}
+.add textarea:focus { outline: none; border-color: var(--text); background: var(--surface); }
+.add .hint { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.inbox-list { list-style: none; margin: 0; padding: 0 8px 8px; max-height: calc(100vh - 230px); overflow-y: auto; }
+@media (max-width: 900px) { .inbox-list { max-height: none; } }
+.inbox-item {
+  padding: 10px; border-radius: 10px; border: 1px solid transparent;
+}
+.inbox-item + .inbox-item { border-top-color: var(--line); border-radius: 0; }
+.inbox-item[draggable="true"] { cursor: grab; }
+.inbox-item .row { display: flex; gap: 8px; align-items: flex-start; }
+.inbox-item .title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 550;
+  border: 1px solid var(--line); color: var(--muted); background: transparent;
+}
+.chip:hover { color: var(--text); border-color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.chip[aria-pressed="true"] .dot { background: currentColor; }
+.icon-btn {
+  width: 28px; height: 28px; border-radius: 8px; color: var(--muted); flex: none;
+  display: inline-grid; place-items: center; font-size: 16px; line-height: 1;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.empty { color: var(--muted); font-size: 13px; padding: 14px 10px 18px; text-align: center; }
+
+/* Matrix */
+.matrix-wrap { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; }
+.axis-x { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.axis-y { display: grid; grid-template-rows: 1fr 1fr; gap: 12px; }
+.axis-x div, .axis-y div {
+  text-align: center; font-size: 11.5px; font-weight: 650; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.axis-y div { writing-mode: vertical-rl; transform: rotate(180deg); }
+.matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
+@media (max-width: 640px) {
+  .matrix-wrap { grid-template-columns: minmax(0, 1fr); }
+  .axis-x, .axis-y { display: none; }
+  .matrix { grid-template-columns: minmax(0, 1fr); }
+  .quad { min-height: 0; }
+}
+.quad { min-height: 220px; display: flex; flex-direction: column; min-width: 0; border-top: 3px solid var(--qc); }
+.quad.q1 { --qc: var(--q1); } .quad.q2 { --qc: var(--q2); }
+.quad.q3 { --qc: var(--q3); } .quad.q4 { --qc: var(--q4); }
+.quad.over { outline: 2px dashed var(--qc); outline-offset: -2px; }
+.quad-head { padding: 12px 14px 4px; display: flex; align-items: baseline; gap: 8px; }
+.quad-head h3 { margin: 0; font-size: 14.5px; font-weight: 650; }
+.quad-head .sub { font-size: 12px; color: var(--muted); }
+.quad-head .n { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tasks { list-style: none; margin: 0; padding: 4px 6px 8px; flex: 1; }
+.task {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 7px 8px; border-radius: 9px; cursor: grab;
+}
+.task:hover { background: var(--surface-2); }
+.task.dragging, .inbox-item.dragging { opacity: .4; }
+.task input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; margin: 2px 0 0; flex: none;
+  width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--muted);
+  display: grid; place-items: center; cursor: pointer;
+}
+.task input[type=checkbox]:checked { background: var(--text); border-color: var(--text); }
+.task input[type=checkbox]:checked::after {
+  content: ""; width: 8px; height: 4px; margin-top: -2px;
+  border-left: 2px solid var(--surface); border-bottom: 2px solid var(--surface);
+  transform: rotate(-45deg);
+}
+.task .title { flex: 1; min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.task.done .title { color: var(--muted); text-decoration: line-through; }
+.task .dot { margin-top: 7px; }
+.task .icon-btn { margin: -3px -2px -3px 0; opacity: 0; }
+.task:hover .icon-btn, .task .icon-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .task .icon-btn { opacity: 1; } }
+.quad .empty { padding: 22px 10px; }
+
+.foot { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; color: var(--muted); font-size: 12.5px; }
+.foot button { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.foot button:hover { color: var(--text); }
+.foot .spacer { margin-left: auto; }
+
+/* Dialog */
+dialog {
+  border: 1px solid var(--line); border-radius: 16px; padding: 0;
+  background: var(--surface); color: var(--text);
+  width: min(440px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog form { padding: 20px; display: grid; gap: 16px; }
+dialog h3 { margin: 0; font-size: 16px; }
+dialog label, dialog .label { display: grid; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+dialog input[type=text] {
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface-2); font-weight: 400; color: var(--text); width: 100%;
+}
+dialog .chips { margin-top: 0; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { padding: 8px 14px; border-radius: 10px; font-weight: 600; border: 1px solid var(--line); }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.btn.primary:hover { opacity: .88; }
+.btn.danger { color: var(--danger); border-color: transparent; padding-left: 4px; }
+.actions .spacer { margin-left: auto; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">Fokus <span>· Inbox &amp; Matrix</span></div>
+    <nav class="filters" id="filters" aria-label="Lebensbereich filtern"></nav>
+  </header>
+
+  <div class="layout">
+    <section class="panel inbox" aria-labelledby="inbox-h">
+      <div class="panel-head">
+        <h2 id="inbox-h">Inbox</h2>
+        <span class="sub" id="inbox-count"></span>
+      </div>
+      <div class="add">
+        <textarea id="new" rows="1" placeholder="Was fällt gerade an?" aria-label="Neue Aufgabe"></textarea>
+        <div class="hint">Enter speichert · mehrere Zeilen einfügen = mehrere Aufgaben</div>
+      </div>
+      <ul class="inbox-list" id="inbox"></ul>
+    </section>
+
+    <section aria-label="Eisenhower-Matrix">
+      <div class="matrix-wrap">
+        <div class="axis-x"><div>Dringend</div><div>Nicht dringend</div></div>
+        <div class="axis-y"><div>Wichtig</div><div>Nicht wichtig</div></div>
+        <div class="matrix" id="matrix"></div>
+      </div>
+      <div class="foot">
+        <span id="summary"></span>
+        <span class="spacer"></span>
+        <button type="button" id="toggle-done"></button>
+        <button type="button" id="clear-done">Erledigte löschen</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlg-form">
+    <h3>Aufgabe bearbeiten</h3>
+    <label>Titel<input type="text" id="dlg-title" required></label>
+    <div class="label">Lebensbereich<div class="chips" id="dlg-areas"></div></div>
+    <div class="label">Priorität<div class="chips" id="dlg-quads"></div></div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="dlg-delete">Löschen</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="dlg-inbox">Zurück in Inbox</button>
+      <button type="submit" class="btn primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const AREAS = [
+    { id: 'arbeit', label: 'Arbeit' },
+    { id: 'studium', label: 'Studium' },
+    { id: 'privat', label: 'Privat' },
+  ];
+  const QUADS = [
+    { id: 'q1', title: 'Sofort erledigen', sub: 'wichtig & dringend', short: 'Sofort' },
+    { id: 'q2', title: 'Einplanen', sub: 'wichtig, nicht dringend', short: 'Einplanen' },
+    { id: 'q3', title: 'Delegieren', sub: 'dringend, nicht wichtig', short: 'Delegieren' },
+    { id: 'q4', title: 'Streichen', sub: 'weder noch', short: 'Streichen' },
+  ];
+  const KEY = 'fokus.v1';
+
+  let state = { tasks: [], filter: 'alle', hideDone: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved && Array.isArray(saved.tasks)) state = { ...state, ...saved };
+  } catch {}
+
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const byId = (id) => state.tasks.find((t) => t.id === id);
+  const sorted = (t) => t.area && t.quad;
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  function areaChips(selected) {
+    return AREAS.map((a) =>
+      `<button type="button" class="chip" data-area="${a.id}" aria-pressed="${selected === a.id}"><span class="dot ${a.id}"></span>${a.label}</button>`
+    ).join('');
+  }
+  function quadChips(selected) {
+    return QUADS.map((q) =>
+      `<button type="button" class="chip" data-quad="${q.id}" aria-pressed="${selected === q.id}" title="${q.title} – ${q.sub}">${q.short}</button>`
+    ).join('');
+  }
+
+  function render() {
+    const open = state.tasks.filter((t) => sorted(t) && !t.done);
+    $('filters').innerHTML = [{ id: 'alle', label: 'Alle' }, ...AREAS].map((a) => {
+      const n = a.id === 'alle' ? open.length : open.filter((t) => t.area === a.id).length;
+      const dot = a.id === 'alle' ? '' : `<span class="dot ${a.id}"></span>`;
+      return `<button type="button" data-filter="${a.id}" aria-pressed="${state.filter === a.id}">${dot}${a.label}<span class="count">${n}</span></button>`;
+    }).join('');
+
+    const inbox = state.tasks.filter((t) => !sorted(t));
+    $('inbox-count').textContent = inbox.length ? `${inbox.length} unsortiert` : '';
+    $('inbox').innerHTML = inbox.length ? inbox.map((t) => `
+      <li class="inbox-item" draggable="true" data-id="${t.id}">
+        <div class="row">
+          <div class="title">${esc(t.title)}</div>
+          <button type="button" class="icon-btn" data-act="delete" aria-label="Löschen" title="Löschen">×</button>
+        </div>
+        <div class="chips">${areaChips(t.area)}</div>
+        <div class="chips">${quadChips(t.quad)}</div>
+      </li>`).join('')
+      : '<li class="empty">Inbox ist leer. Alles einsortiert.</li>';
+
+    const visible = state.tasks.filter((t) => sorted(t)
+      && (state.filter === 'alle' || t.area === state.filter)
+      && !(state.hideDone && t.done));
+    $('matrix').innerHTML = QUADS.map((q) => {
+      const items = visible.filter((t) => t.quad === q.id).sort((a, b) => a.done - b.done);
+      const list = items.length ? items.map((t) => `
+        <li class="task${t.done ? ' done' : ''}" draggable="true" data-id="${t.id}">
+          <input type="checkbox" ${t.done ? 'checked' : ''} aria-label="Erledigt">
+          <button type="button" class="title" data-act="edit">${esc(t.title)}</button>
+          ${state.filter === 'alle' ? `<span class="dot ${t.area}" title="${AREAS.find((a) => a.id === t.area).label}"></span>` : ''}
+          <button type="button" class="icon-btn" data-act="edit" aria-label="Bearbeiten" title="Bearbeiten">⋯</button>
+        </li>`).join('')
+        : '<li class="empty">Noch nichts hier</li>';
+      return `
+        <div class="panel quad ${q.id}" data-quad="${q.id}">
+          <div class="quad-head"><h3>${q.title}</h3><span class="sub">${q.sub}</span><span class="n">${items.filter((t) => !t.done).length || ''}</span></div>
+          <ul class="tasks">${list}</ul>
+        </div>`;
+    }).join('');
+
+    const scope = state.tasks.filter((t) => sorted(t) && (state.filter === 'alle' || t.area === state.filter));
+    const doneN = scope.filter((t) => t.done).length;
+    $('summary').textContent = scope.length ? `${scope.length - doneN} offen · ${doneN} erledigt` : '';
+    $('toggle-done').textContent = state.hideDone ? 'Erledigte einblenden' : 'Erledigte ausblenden';
+    $('toggle-done').hidden = $('clear-done').hidden = !doneN;
+    save();
+  }
+
+  // --- Inbox: add ---
+  const input = $('new');
+  const grow = () => { input.style.height = 'auto'; input.style.height = input.scrollHeight + 2 + 'px'; };
+  input.addEventListener('input', grow);
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    e.preventDefault();
+    const lines = input.value.split('\n').map((l) => l.replace(/^\s*(?:[-*•]|\[\s?\])\s+/, '').trim()).filter(Boolean);
+    if (!lines.length) return;
+    state.tasks.push(...lines.map((title) => ({ id: uid(), title, area: null, quad: null, done: false })));
+    input.value = ''; grow(); render();
+  });
+
+  // --- Filters ---
+  $('filters').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-filter]');
+    if (b) { state.filter = b.dataset.filter; render(); }
+  });
+
+  // --- Inbox item actions ---
+  $('inbox').addEventListener('click', (e) => {
+    const li = e.target.closest('.inbox-item'); if (!li) return;
+    const t = byId(li.dataset.id); if (!t) return;
+    const area = e.target.closest('[data-area]'), quad = e.target.closest('[data-quad]');
+    if (area) t.area = t.area === area.dataset.area ? null : area.dataset.area;
+    else if (quad) t.quad = t.quad === quad.dataset.quad ? null : quad.dataset.quad;
+    else if (e.target.closest('[data-act="delete"]')) state.tasks = state.tasks.filter((x) => x !== t);
+    else return;
+    render();
+  });
+
+  // --- Matrix actions ---
+  $('matrix').addEventListener('change', (e) => {
+    const li = e.target.closest('.task'); if (!li) return;
+    const t = byId(li.dataset.id); if (t) { t.done = e.target.checked; render(); }
+  });
+  $('matrix').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-act="edit"]')) return;
+    openDialog(e.target.closest('.task').dataset.id);
+  });
+
+  // --- Drag & drop ---
+  let dragId = null;
+  document.addEventListener('dragstart', (e) => {
+    const el = e.target.closest?.('[draggable="true"][data-id]'); if (!el) return;
+    dragId = el.dataset.id; el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId);
+  });
+  document.addEventListener('dragend', () => {
+    dragId = null;
+    document.querySelectorAll('.dragging, .over').forEach((n) => n.classList.remove('dragging', 'over'));
+  });
+  $('matrix').addEventListener('dragover', (e) => {
+    const q = e.target.closest('.quad'); if (!q || !dragId) return;
+    e.preventDefault();
+    document.querySelectorAll('.quad.over').forEach((n) => n !== q && n.classList.remove('over'));
+    q.classList.add('over');
+  });
+  $('matrix').addEventListener('dragleave', (e) => {
+    const q = e.target.closest('.quad');
+    if (q && !q.contains(e.relatedTarget)) q.classList.remove('over');
+  });
+  $('matrix').addEventListener('drop', (e) => {
+    const q = e.target.closest('.quad'); const t = byId(dragId); if (!q || !t) return;
+    e.preventDefault();
+    t.quad = q.dataset.quad;
+    // Aus der Inbox gezogen: aktiven Bereichsfilter als Lebensbereich übernehmen
+    if (!t.area && state.filter !== 'alle') t.area = state.filter;
+    render();
+  });
+
+  // --- Edit dialog ---
+  const dlg = $('dlg'); let edit = null;
+  function openDialog(id) {
+    const t = byId(id); if (!t) return;
+    edit = { id, area: t.area, quad: t.quad };
+    $('dlg-title').value = t.title;
+    paintDialog(); dlg.showModal();
+  }
+  function paintDialog() {
+    $('dlg-areas').innerHTML = areaChips(edit.area);
+    $('dlg-quads').innerHTML = quadChips(edit.quad);
+  }
+  $('dlg-areas').addEventListener('click', (e) => { const b = e.target.closest('[data-area]'); if (b) { edit.area = b.dataset.area; paintDialog(); } });
+  $('dlg-quads').addEventListener('click', (e) => { const b = e.target.closest('[data-quad]'); if (b) { edit.quad = b.dataset.quad; paintDialog(); } });
+  $('dlg-form').addEventListener('submit', () => {
+    const t = byId(edit.id); const title = $('dlg-title').value.trim();
+    if (t && title) Object.assign(t, { title, area: edit.area, quad: edit.quad });
+    render();
+  });
+  $('dlg-delete').addEventListener('click', () => { state.tasks = state.tasks.filter((t) => t.id !== edit.id); dlg.close(); render(); });
+  $('dlg-inbox').addEventListener('click', () => { const t = byId(edit.id); if (t) { t.quad = null; t.done = false; } dlg.close(); render(); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+
+  // --- Footer ---
+  $('toggle-done').addEventListener('click', () => { state.hideDone = !state.hideDone; render(); });
+  $('clear-done').addEventListener('click', () => {
+    const inScope = (t) => t.done && (state.filter === 'alle' || t.area === state.filter);
+    const n = state.tasks.filter(inScope).length;
+    if (n && confirm(`${n} erledigte Aufgabe${n > 1 ? 'n' : ''} endgültig löschen?`)) {
+      state.tasks = state.tasks.filter((t) => !inScope(t)); render();
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
